@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description:  "Security Single Lambda function for child accounts calling lambda layers from main account"
+
+########### Parameters block #############
+Parameters:
+  AccountName:
+    Type: String
+    Description: Account Name as an identifier for the account
+    Default: "aws-generic-security"
+  EmailIds:
+    Type: String
+    AllowedPattern: ^(\s?[^\s,]+@[^\s,]+\.[^\s,]+\s?,)*(\s?[^\s,]+@[^\s,]+\.[^\s,]+)$
+    ConstraintDescription: must be a valid email address
+    Description: Add multiple Email address of the concerned persons
+    Default: "aws-generic-security@example.com"
+  Name:
+    Type: String
+    Description: Add a name which will be use as perefix name for lambda,event.role.
+    Default: "aws-generic-security"
+  LayerName:
+    Type: String
+    Description: Add a lambda layer name
+    Default: "aws-generic-security"
+  LambdaLayerVersion:
+    Type: String
+    Description: Add a lambda layer version
+    Default: "1" 
+  
+########### Resources block #############
+Resources:
+  CloudWatchEvent:
+    Type: AWS::Events::Rule
+    DependsOn: LambdaFunction
+    Properties:
+      EventPattern:
+            source:
+              - aws.ec2
+              - aws.rds
+              - aws.s3
+              - aws.iam
+              - aws.cloudtrail
+              - aws.signin
+              - aws.lambda
+              - aws.elasticloadbalancing
+              - aws.route53
+              - aws.secretsmanager
+              - aws.backup
+              - aws.ecr-public
+              
+            detail-type:
+              - AWS API Call via CloudTrail
+              - AWS Console Sign In via CloudTrail
+            detail:
+              eventSource:
+                - ec2.amazonaws.com
+                - rds.amazonaws.com
+                - s3.amazonaws.com
+                - iam.amazonaws.com
+                - cloudtrail.amazonaws.com
+                - signin.amazonaws.com
+                - lambda.amazonaws.com
+                - elasticloadbalancing.amazonaws.com
+                - route53.amazonaws.com
+                - secretsmanager.amazonaws.com
+                - backup.amazonaws.com
+                - ecr-public.amazonaws.com
+                
+              eventName:
+                - RunInstances
+                - ModifySnapshotAttribute
+                - ModifyImageAttribute
+                - ModifyDBClusterSnapshotAttribute
+                - ModifyDBSnapshotAttribute
+                - CreateDBInstance
+                - CreateSecurityGroup
+                - AuthorizeSecurityGroupIngress
+                - AuthorizeSecurityGroupEgress
+                - CreateAccessKey
+                - DeleteAccessKey
+                - StopLogging
+                - DeleteTrail
+                - ConsoleLogin
+                - PutBucketPublicAccessBlock
+                - PutBucketAcl
+                - CreateFunction20150331
+                - UpdateFunctionConfiguration20150331v2
+                - UpdateFunctionCode20150331v2
+                - CreateLoadBalancer
+                - CreateVpc
+                - DeleteVpc
+                - CreateSubnet
+                - DeleteSubnet
+                - CreateNatGateway
+                - DeleteNatGateway
+                - CreateRouteTable
+                - DeleteRouteTable
+                - DeleteHostedZone
+                - ChangeResourceRecordSets
+                - DeleteSecret
+                - DeleteBackupPlan
+                - DeleteBackupVault
+                - CreateVpcPeeringConnection
+                - DeleteVpcPeeringConnection
+                - CreateRepository
+                - CreateNetworkAcl
+                - DeleteNetworkAcl
+                - AllocateAddress
+                - DeleteVpcEndpoints
+                - ReleaseAddress
+      Name: !Sub '${Name}-events'
+      Targets:
+      - Arn: !GetAtt 'LambdaFunction.Arn'
+        Id: LambdaFunction
+      
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Name}-role'
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+      - PolicyName: !Sub '${Name}-policy'
+        PolicyDocument:
+          Statement:
+          - Action:
+              - "secretsmanager:GetSecretValue"
+            Effect: Allow
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-secrets*'
+            Sid: SecretPermission
+          - Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Effect: Allow
+            Resource: "arn:aws:logs:*:*:*"
+            Sid: CloudWatchLogsPermissions
+          - Action:
+              - "ec2:DescribeSecurityGroups"
+              - "ec2:DescribeSecurityGroupReferences"
+              - "ec2:DescribeStaleSecurityGroups"
+              - "ec2:DescribeRegions"
+              - "ec2:DescribeInstances"
+              - "elasticloadbalancing:DescribeLoadBalancers"
+              - "rds:DescribeDBInstances"
+              - "ec2:DescribeNetworkInterfaces"
+              - "ec2:DescribeRouteTables"
+            Resource: "*"
+            Effect: Allow
+            Sid: EC2Permissions
+          - Action:
+              - "iam:ListAccessKeys"
+              - "iam:GetServiceLastAccessedDetails"
+              - "iam:GetAccessKeyLastUsed"
+              - "iam:ListUsers"
+              - "iam:ListMFADevices"
+              - "iam:GetAccountSummary"
+              - "iam:GetAccountAuthorizationDetails"
+            Resource: "*"
+            Effect: Allow
+            Sid: IAMPermissions
+          - Action:
+              - "cloudtrail:ListTrails"
+              - "cloudtrail:DescribeTrails"
+              - "cloudtrail:GetTrail"
+              - "cloudtrail:GetTrailStatus"
+            Resource: "*"
+            Effect: Allow
+            Sid: CloudtrailPermissions
+          - Action:
+              - "s3:ListAllMyBuckets"
+              - "s3:GetBucketAcl"
+              - "s3:GetBucketPublicAccessBlock"
+              - "s3:GetBucketPolicy"
+            Resource: "*"
+            Effect: Allow
+            Sid: S3Permissions
+          - Action:
+              - "lambda:InvokeFunction"
+              - "lambda:InvokeAsync"
+            Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Name}-function'
+            Effect: Allow
+            Sid: LambdaPermissions
+      Tags:
+        - Key : 'Name'
+          Value: !Sub '${Name}-role'
+        - Key : 'Project'
+          Value: 'Cloudcare'
+        
+  
+  LambdaFunction: 
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaRole
+    Properties:
+      FunctionName: !Sub '${Name}-function'
+      Role: !GetAtt LambdaRole.Arn
+      Description: Security Lambda function to capture all security events via Layer
+      Environment:
+        Variables:
+          LAYERVERSION: !Ref 'LambdaLayerVersion'
+          ACCOUNTNAME: !Ref 'AccountName'
+          EMAILIDS: !Ref 'EmailIds'
+          SECRETNAME: !Sub '${Name}-secrets'
+          SECRETREGION: !Ref "AWS::Region"
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import main as main_func
+          def lambda_handler(event, context):
+            layerversion = os.environ['LAYERVERSION']
+            accountname = os.environ['ACCOUNTNAME'] 
+            mail_ids = os.environ['EMAILIDS'] 
+            print (event)
+            main_func.main(event,context)
+      Handler: index.lambda_handler
+      Timeout: 900
+      Runtime: python3.9
+      MemorySize: 1500
+      Layers:
+        - !Join
+            - ''
+            - - 'arn:aws:lambda:'
+              - !Ref AWS::Region
+              - ':'
+              - !Ref AWS::AccountId
+              - ':layer:'
+              - !Ref 'LayerName'
+              - ':'
+              - !Ref 'LambdaLayerVersion'
+      Tags:
+        - Key : 'Name'
+          Value: !Sub '${Name}-function'
+        - Key : 'Project'
+          Value: 'Cloudcare'
+               
+
+  CloudWatchEventLambdaPermission: 
+    Type: AWS::Lambda::Permission
+    DependsOn: LambdaFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'LambdaFunction.Arn'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'CloudWatchEvent.Arn'
+  
+  SecretsManger:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: !Sub '${Name}-secrets'
+      SecretString: !Sub |
+        {
+          "EMAIL_FROM": "NA",
+          "SES_REGION": "NA",
+          "ACCESS_KEY": "NA",
+          "ACCESS_SECRET_KEY": "NA"
+        }
+      Tags:
+        - Key : 'Name'
+          Value: !Sub '${Name}-secrets'
+        - Key : 'Project'
+          Value: 'Cloudcare'
+        
+  
+  LambdaLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Name}'
+      RetentionInDays: 14
+      Tags:
+        - Key : 'Name'
+          Value: !Sub '/aws/lambda/${Name}'
+        - Key : 'Project'
+          Value: 'Cloudcare'
+        
