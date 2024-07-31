@@ -1,3 +1,6 @@
+##Blog
+Here are the steps to set up this your account.
+[LINK](https://www.tothenew.com/blog/unlocking-efficiency-automated-aws-security-for-modern-businesses)
 ## Event Alerts
 Here is the detailed use of event we are using.
 
