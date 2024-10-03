@@ -108,6 +108,8 @@ Resources:
                 - AllocateAddress
                 - DeleteVpcEndpoints
                 - ReleaseAddress
+                - CreateUser
+                - DeleteUser
       Name: !Sub '${Name}-events'
       Targets:
       - Arn: !GetAtt 'LambdaFunction.Arn'
@@ -272,11 +274,11 @@ Resources:
   LambdaLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${Name}'
+      LogGroupName: !Sub '/aws/lambda/${Name}-function'
       RetentionInDays: 14
       Tags:
         - Key : 'Name'
-          Value: !Sub '/aws/lambda/${Name}'
+          Value: !Sub '/aws/lambda/${Name}-function'
         - Key : 'Project'
           Value: 'Cloudcare'
         
