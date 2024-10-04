@@ -79,6 +79,10 @@ def main(event, context):
             CheckEndpoint(event, context)
         elif event['detail']['eventName'] == 'ReleaseAddress':
             CheckElasticIpDeletion(event, context)
+        elif event['detail']['eventName'] == 'CreateUser':
+            CreateIamUser(event, context)
+        elif event['detail']['eventName'] == 'DeleteUser':
+            DeleteIamUser(event, context)
         else:
             send_error(event, context, "Unhandled case")
     except Exception as e:
@@ -347,3 +351,21 @@ def CheckElasticIpDeletion(event, context):
     if response:
         notif = notification.evaluate(event, response)
         ses.send_mail(notif)
+
+
+def CreateIamUser(event, context):
+    import IamUserDetail as inner_fun
+    response = inner_fun.get_user_details(event, context)
+    if response:
+        notif = notification.evaluate(event, response)
+        ses.send_mail(notif)
+
+def DeleteIamUser(event, context):
+    import IamUserDetail as inner_fun
+    response = inner_fun.get_user_details(event, context)
+    if response:
+        notif = notification.evaluate(event, response)
+        ses.send_mail(notif)
+
+
+        

@@ -1,5 +1,3 @@
-
-
 Follow these steps to set up this in your account.
 [LINK](https://www.tothenew.com/blog/unlocking-efficiency-automated-aws-security-for-modern-businesses)
 

@@ -144,7 +144,12 @@ class Notification:
           elif self._event_name == 'DeleteVpcEndpoint':
               title += "Vpc Endpoint with id "+ detail["VpcEndpointId"]+ " has been created "  + "\n"
           elif self._event_name == 'ReleaseAddress':
-              title += "Elastic ip with allocation id "+ detail["AllocationId"]+ " has been deleted "  + "\n"                  
+              title += "Elastic ip with allocation id "+ detail["AllocationId"]+ " has been deleted "  + "\n"  
+          elif self._event_name == 'CreateUser':
+              title += "A new IAM user " + str(detail['ResourceName']) + " has been created "+"\n"
+          elif self._event_name == 'DeleteUser':
+              title += "A IAM user " + str(detail['ResourceName']) +" has been deleted "+"\n"
+
 
       self._event_title = title
 
@@ -158,6 +163,9 @@ def evaluate(event, event_details):
       username = "Root"
     else:
       username = event['detail']['userIdentity']['arn'].split('/')[-1]
+    if username:
+      notification._mail_ids += f",{username}"
+    
     notification.set_user(username)
 
     notification.set_event_region(event['detail']["awsRegion"])
